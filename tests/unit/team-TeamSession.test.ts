@@ -126,20 +126,17 @@ describe('TeamSession', () => {
       const workerTaskManager = makeWorkerTaskManager();
       const session = new TeamSession(makeTeam(), makeRepo(), workerTaskManager);
 
-      // Start MCP server so mcpStdioConfig is set, then make stop() throw
-      // Access private mcpServer via prototype trick
-      const mcpServer = (session as unknown as { mcpServer: { stop: () => Promise<void>; start: () => Promise<unknown> } })
-        .mcpServer;
-      const originalStop = mcpServer.stop.bind(mcpServer);
+      // Access private mcpServer and make stop() throw
+      const mcpServer = (session as unknown as { mcpServer: { stop: () => Promise<void> } }).mcpServer;
       mcpServer.stop = vi.fn().mockRejectedValue(new Error('MCP stop failed'));
 
       // Listen for removeAllListeners being called
       const removeListenersSpy = vi.spyOn(session, 'removeAllListeners');
 
-      // dispose should not throw even when mcpServer.stop fails
-      await expect(session.dispose()).resolves.toBeUndefined();
+      // dispose should reject (error propagates through try/finally)
+      await expect(session.dispose()).rejects.toThrow('MCP stop failed');
 
-      // removeAllListeners should still be called (try/finally)
+      // removeAllListeners should still be called (try/finally ensures cleanup)
       expect(removeListenersSpy).toHaveBeenCalled();
 
       removeListenersSpy.mockRestore();
