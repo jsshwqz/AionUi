@@ -1,4 +1,4 @@
-import { Message, Modal, Spin } from '@arco-design/web-react';
+import { Button, Message, Modal, Spin } from '@arco-design/web-react';
 import { CloseOne, CloseSmall, FullScreen, Left, OffScreen, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -170,14 +170,11 @@ const AgentChatSlot: React.FC<{
         )}
         {(runtimeStatus ?? agent.status) === 'failed' && !isLead && onRemove && (
           <div className='absolute inset-0 z-10 flex flex-col items-center justify-center gap-12px bg-[color:var(--color-bg-1)]/80'>
-            <CloseOne theme='filled' size='32' fill='#f53f3f' />
+            <CloseOne theme='filled' size='32' fill='var(--color-danger-6)' />
             <span className='text-14px text-[color:var(--color-text-2)]'>Agent failed to start</span>
-            <button
-              className='px-16px py-6px rd-8px bg-[#f53f3f] text-white text-13px cursor-pointer hover:opacity-80 transition-opacity border-none'
-              onClick={onRemove}
-            >
+            <Button type='primary' status='danger' size='small' onClick={onRemove}>
               Remove
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -471,9 +468,34 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({ team, onAddAgent, onR
 const TeamPage: React.FC<Props> = ({ team }) => {
   const { statusMap, addAgent, renameAgent, removeAgent, mutateTeam } = useTeamSession(team);
   const { user } = useAuth();
+  const { t } = useTranslation();
   const { mutate: globalMutate } = useSWRConfig();
   const { cliAgents, presetAssistants } = useConversationAgents();
   const defaultSlotId = team.agents[0]?.slotId ?? '';
+
+  const handleRemoveAgentWithConfirm = useCallback(
+    async (slotId: string) => {
+      const doRemove = async () => {
+        try {
+          await removeAgent(slotId);
+          Message.success(t('common.deleteSuccess'));
+        } catch (error) {
+          Message.error(String(error));
+        }
+      };
+      const status = statusMap.get(slotId)?.status;
+      if (status === 'active') {
+        Modal.confirm({
+          title: t('team.removeAgent.confirmTitle'),
+          content: t('team.removeAgent.confirmContent'),
+          onOk: doRemove,
+        });
+      } else {
+        void doRemove();
+      }
+    },
+    [statusMap, removeAgent, t]
+  );
 
   const handleAddAgent = useCallback(
     async (data: { agentName: string; agentKey: string }) => {
@@ -516,7 +538,7 @@ const TeamPage: React.FC<Props> = ({ team }) => {
       defaultActiveSlotId={defaultSlotId}
       teamId={team.id}
       renameAgent={renameAgent}
-      removeAgent={removeAgent}
+      removeAgent={handleRemoveAgentWithConfirm}
     >
       <TeamPageContent team={team} onAddAgent={handleAddAgent} onRenameTeam={handleRenameTeam} />
     </TeamTabsProvider>
