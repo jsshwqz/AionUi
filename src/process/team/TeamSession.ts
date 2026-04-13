@@ -205,7 +205,6 @@ export class TeamSession extends EventEmitter {
 
   /** Clean up all IPC listeners, MCP server, kill agent processes, and EventEmitter handlers */
   async dispose(): Promise<void> {
-    this.teammateManager.setHasMcpTools(false);
     // Kill all agent processes before clearing listeners
     for (const agent of this.teammateManager.getAgents()) {
       if (agent.conversationId) {
