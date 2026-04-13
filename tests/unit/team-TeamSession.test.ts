@@ -1,5 +1,5 @@
 // tests/unit/team-TeamSession.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Hoist mocks before any imports
@@ -46,7 +46,7 @@ function makeRepo(): ITeamRepository {
     delete: vi.fn(),
     deleteMailboxByTeam: vi.fn(),
     deleteTasksByTeam: vi.fn(),
-    writeMessage: vi.fn(),
+    writeMessage: vi.fn(async (message) => message),
     readUnread: vi.fn(),
     readUnreadAndMark: vi.fn(),
     markRead: vi.fn(),
@@ -107,6 +107,10 @@ function makeTeam(overrides: Partial<TTeam> = {}): TTeam {
 describe('TeamSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('dispose()', () => {
@@ -173,6 +177,63 @@ describe('TeamSession', () => {
       // Only the agent with conversationId should be killed
       expect(workerTaskManager.kill).toHaveBeenCalledWith('conv-lead');
       expect(workerTaskManager.kill).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('delivery semantics', () => {
+    it('sendMessage resolves after mailbox acceptance even when wake fails', async () => {
+      const repo = makeRepo();
+      const session = new TeamSession(makeTeam(), repo, makeWorkerTaskManager());
+      vi.spyOn(session, 'startMcpServer').mockResolvedValue({ command: 'noop', args: [], env: [] });
+
+      const wakeSpy = vi
+        .spyOn(
+          (session as unknown as { teammateManager: { wake: (slotId: string) => Promise<void> } }).teammateManager,
+          'wake'
+        )
+        .mockRejectedValue(new Error('Task unavailable'));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(session.sendMessage('hello team')).resolves.toBeUndefined();
+
+      expect(repo.writeMessage).toHaveBeenCalledTimes(1);
+      expect(wakeSpy).toHaveBeenCalledWith('slot-lead');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[TeamSession] Accepted team message but failed to wake slot-lead:',
+        'Task unavailable'
+      );
+    });
+
+    it('sendMessageToAgent resolves after mailbox acceptance even when wake fails', async () => {
+      const repo = makeRepo();
+      const session = new TeamSession(makeTeam(), repo, makeWorkerTaskManager());
+      vi.spyOn(session, 'startMcpServer').mockResolvedValue({ command: 'noop', args: [], env: [] });
+
+      const wakeSpy = vi
+        .spyOn(
+          (session as unknown as { teammateManager: { wake: (slotId: string) => Promise<void> } }).teammateManager,
+          'wake'
+        )
+        .mockRejectedValue(new Error('Task unavailable'));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(session.sendMessageToAgent('slot-member', 'hello member')).resolves.toBeUndefined();
+
+      expect(repo.writeMessage).toHaveBeenCalledTimes(1);
+      expect(wakeSpy).toHaveBeenCalledWith('slot-member');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[TeamSession] Accepted agent message but failed to wake slot-member:',
+        'Task unavailable'
+      );
+    });
+
+    it('still rejects when acceptance fails before mailbox delivery', async () => {
+      const repo = makeRepo();
+      const session = new TeamSession(makeTeam(), repo, makeWorkerTaskManager());
+      vi.spyOn(session, 'startMcpServer').mockRejectedValue(new Error('mcp failed'));
+
+      await expect(session.sendMessage('hello team')).rejects.toThrow('mcp failed');
+      expect(repo.writeMessage).not.toHaveBeenCalled();
     });
   });
 });
