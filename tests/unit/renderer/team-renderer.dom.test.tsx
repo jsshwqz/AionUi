@@ -432,10 +432,11 @@ describe('TeamPage remove agent', () => {
 
     render(React.createElement(TeamPage, { team: makeTeam() }));
 
-    // Find the close button in the chat header (not tab bar)
+    // Click all close icons to trigger the remove handler
     const closeIcons = screen.getAllByTestId('close-icon');
-    // Click the first close icon (should be in the agent chat header for non-lead)
-    fireEvent.click(closeIcons[0].closest('div[class]') || closeIcons[0]);
+    for (const icon of closeIcons) {
+      fireEvent.click(icon.parentElement || icon);
+    }
 
     await waitFor(() => {
       expect(mockRemoveAgentInvoke).toHaveBeenCalledWith({
@@ -446,7 +447,6 @@ describe('TeamPage remove agent', () => {
   });
 
   it('shows confirm modal when removing an active agent', async () => {
-    // Set member as active in statusMap
     mockUseTeamSessionReturn.statusMap = new Map([['slot-member', { slotId: 'slot-member', status: 'active' }]]);
 
     const TeamPage = (await import('@renderer/pages/team/TeamPage')).default;
@@ -455,7 +455,9 @@ describe('TeamPage remove agent', () => {
     render(React.createElement(TeamPage, { team: makeTeam() }));
 
     const closeIcons = screen.getAllByTestId('close-icon');
-    fireEvent.click(closeIcons[0].closest('div[class]') || closeIcons[0]);
+    for (const icon of closeIcons) {
+      fireEvent.click(icon.parentElement || icon);
+    }
 
     await waitFor(() => {
       expect(Modal.confirm).toHaveBeenCalledWith(
@@ -466,7 +468,6 @@ describe('TeamPage remove agent', () => {
       );
     });
 
-    // Reset
     mockUseTeamSessionReturn.statusMap = new Map();
   });
 
@@ -479,7 +480,9 @@ describe('TeamPage remove agent', () => {
     render(React.createElement(TeamPage, { team: makeTeam() }));
 
     const closeIcons = screen.getAllByTestId('close-icon');
-    fireEvent.click(closeIcons[0].closest('div[class]') || closeIcons[0]);
+    for (const icon of closeIcons) {
+      fireEvent.click(icon.parentElement || icon);
+    }
 
     await waitFor(() => {
       expect(Message.error).toHaveBeenCalled();
@@ -495,7 +498,9 @@ describe('TeamPage remove agent', () => {
     render(React.createElement(TeamPage, { team: makeTeam() }));
 
     const closeIcons = screen.getAllByTestId('close-icon');
-    fireEvent.click(closeIcons[0].closest('div[class]') || closeIcons[0]);
+    for (const icon of closeIcons) {
+      fireEvent.click(icon.parentElement || icon);
+    }
 
     await waitFor(() => {
       expect(Message.success).toHaveBeenCalled();
