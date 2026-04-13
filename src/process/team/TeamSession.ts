@@ -76,7 +76,6 @@ export class TeamSession extends EventEmitter {
   async startMcpServer(): Promise<StdioMcpConfig> {
     if (!this.mcpStdioConfig) {
       this.mcpStdioConfig = await this.mcpServer.start();
-      this.teammateManager.setHasMcpTools(true);
     }
     return this.mcpStdioConfig;
   }
