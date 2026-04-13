@@ -55,8 +55,7 @@
   },
   "removeAgent": {
     "confirmTitle": "Remove Team Member",
-    "confirmContent": "This member is currently active. Force remove?",
-    "tooltip": "Remove member"
+    "confirmContent": "This member is currently active. Force remove?"
   },
   "emptyState": {
     "subtitle": "Describe your goal and I'll get the team working on it",

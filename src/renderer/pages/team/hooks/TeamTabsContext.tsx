@@ -14,7 +14,7 @@ export type TeamTabsContextValue = {
   teamId: string;
   switchTab: (slotId: string) => void;
   renameAgent?: (slotId: string, newName: string) => Promise<void>;
-  removeAgent?: (slotId: string) => Promise<void>;
+  removeAgent?: (slotId: string) => void;
   reorderAgents: (fromSlotId: string, toSlotId: string) => void;
 };
 
@@ -27,7 +27,7 @@ export const TeamTabsProvider: React.FC<{
   defaultActiveSlotId: string;
   teamId: string;
   renameAgent?: (slotId: string, newName: string) => Promise<void>;
-  removeAgent?: (slotId: string) => Promise<void>;
+  removeAgent?: (slotId: string) => void;
 }> = ({ children, agents: externalAgents, statusMap, defaultActiveSlotId, teamId, renameAgent, removeAgent }) => {
   const storageKey = `team-active-slot-${teamId}`;
   const savedSlotId = localStorage.getItem(storageKey);

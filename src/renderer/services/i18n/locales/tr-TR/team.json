@@ -55,8 +55,7 @@
   },
   "removeAgent": {
     "confirmTitle": "Takım Üyesini Kaldır",
-    "confirmContent": "Bu üye şu anda aktif. Zorla kaldırılsın mı?",
-    "tooltip": "Üyeyi kaldır"
+    "confirmContent": "Bu üye şu anda aktif. Zorla kaldırılsın mı?"
   },
   "emptyState": {
     "subtitle": "Hedefini söyle, ekibi koordine ederek tamamlayayım",

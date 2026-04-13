@@ -466,15 +466,15 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({ team, onAddAgent, onR
 };
 
 const TeamPage: React.FC<Props> = ({ team }) => {
+  const { t } = useTranslation();
   const { statusMap, addAgent, renameAgent, removeAgent, mutateTeam } = useTeamSession(team);
   const { user } = useAuth();
-  const { t } = useTranslation();
   const { mutate: globalMutate } = useSWRConfig();
   const { cliAgents, presetAssistants } = useConversationAgents();
   const defaultSlotId = team.agents[0]?.slotId ?? '';
 
   const handleRemoveAgentWithConfirm = useCallback(
-    async (slotId: string) => {
+    (slotId: string) => {
       const doRemove = async () => {
         try {
           await removeAgent(slotId);

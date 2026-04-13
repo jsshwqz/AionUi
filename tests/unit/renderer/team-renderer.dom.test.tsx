@@ -73,7 +73,9 @@ vi.mock('@arco-design/web-react', () => {
   };
   const Spin = ({ loading }: { loading?: boolean }) =>
     loading ? React.createElement('div', { 'data-testid': 'spin' }) : null;
-  return { Message, Modal, Spin };
+  const Button = ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) =>
+    React.createElement('button', { 'data-testid': 'arco-button', onClick }, children);
+  return { Button, Message, Modal, Spin };
 });
 
 vi.mock('@icon-park/react', () => ({
