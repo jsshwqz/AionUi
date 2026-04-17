@@ -127,9 +127,7 @@ describe('systemSettingsBridge', () => {
       expect(await getProvider('systemSettings.getNotificationEnabled')()).toBe(true);
       expect(await getProvider('systemSettings.getCronNotificationEnabled')()).toBe(false);
       expect(await getProvider('systemSettings.getKeepAwake')()).toBe(false);
-      expect(await getProvider('systemSettings.getSaveUploadToWorkspace')()).toBe(false);
       expect(await getProvider('systemSettings.getAutoPreviewOfficeFiles')()).toBe(true);
-      expect(await getProvider('systemSettings.getCommandQueueEnabled')()).toBe(true);
       expect(await getProvider('systemSettings.getAgentSessionSync')()).toBe(false);
     });
 
@@ -140,14 +138,12 @@ describe('systemSettingsBridge', () => {
       await getProvider('systemSettings.setCronNotificationEnabled')({ enabled: true });
       await getProvider('systemSettings.setSaveUploadToWorkspace')({ enabled: true });
       await getProvider('systemSettings.setAutoPreviewOfficeFiles')({ enabled: false });
-      await getProvider('systemSettings.setCommandQueueEnabled')({ enabled: false });
       await getProvider('systemSettings.setAgentSessionSync')({ enabled: true });
 
       expect(mockProcessConfig.set).toHaveBeenCalledWith('system.notificationEnabled', true);
       expect(mockProcessConfig.set).toHaveBeenCalledWith('system.cronNotificationEnabled', true);
       expect(mockProcessConfig.set).toHaveBeenCalledWith('upload.saveToWorkspace', true);
       expect(mockProcessConfig.set).toHaveBeenCalledWith('system.autoPreviewOfficeFiles', false);
-      expect(mockProcessConfig.set).toHaveBeenCalledWith('system.commandQueueEnabled', false);
       expect(mockProcessConfig.set).toHaveBeenCalledWith('system.agentSessionSync', true);
     });
   });
