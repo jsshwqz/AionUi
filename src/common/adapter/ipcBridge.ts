@@ -738,6 +738,12 @@ export const systemSettings = {
   setPetDnd: bridge.buildProvider<void, { dnd: boolean }>('system-settings:set-pet-dnd'),
   getPetConfirmEnabled: bridge.buildProvider<boolean, void>('system-settings:get-pet-confirm-enabled'),
   setPetConfirmEnabled: bridge.buildProvider<void, { enabled: boolean }>('system-settings:set-pet-confirm-enabled'),
+  // Desktop agent session sync settings
+  getAgentSessionSync: bridge.buildProvider<boolean, void>('system-settings:get-agent-session-sync'),
+  setAgentSessionSync: bridge.buildProvider<void, { enabled: boolean }>('system-settings:set-agent-session-sync'),
+  syncAgentSessions: bridge.buildProvider<{ imported: number; errors: string[] }, void>(
+    'system-settings:sync-agent-sessions'
+  ),
 };
 
 // 系统通知接口 / System notification API
@@ -1313,3 +1319,4 @@ export const team = {
   listChanged: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamListChangedEvent>('team.list-changed'),
   mcpStatus: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamMcpStatusEvent>('team.mcp.status'),
 };
+
