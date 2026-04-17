@@ -1319,4 +1319,3 @@ export const team = {
   listChanged: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamListChangedEvent>('team.list-changed'),
   mcpStatus: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamMcpStatusEvent>('team.mcp.status'),
 };
-
