@@ -12,6 +12,7 @@ const fsMock = vi.hoisted(() => ({
   open: vi.fn(),
   access: vi.fn(),
   readdir: vi.fn(),
+  readFile: vi.fn(),
 }));
 
 const osMock = vi.hoisted(() => ({
@@ -47,6 +48,10 @@ function makeDirent(name: string, isDir: boolean) {
     isDirectory: () => isDir,
     isFile: () => !isDir,
   };
+}
+
+function normalizePath(input: string): string {
+  return input.replace(/\\/g, '/');
 }
 
 // --- Tests ---
@@ -255,6 +260,98 @@ describe('SessionScannerService', () => {
       expect(result.sessions).toEqual([]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Claude Code scan failed');
+    });
+  });
+
+  describe('scanCodex', () => {
+    it('should return empty array when codex sessions directory does not exist', async () => {
+      fsMock.access.mockRejectedValue(new Error('ENOENT'));
+
+      const sessions = await scanner.scanCodex();
+
+      expect(sessions).toEqual([]);
+    });
+
+    it('should scan rollout files and prefer session_index thread name', async () => {
+      const codexRoot = '/home/testuser/.codex';
+      const sessionsDir = `${codexRoot}/sessions`;
+      const dayDir = `${sessionsDir}/2026/04/17`;
+      const archivedDir = `${codexRoot}/archived_sessions`;
+
+      const rolloutA = `${dayDir}/rollout-a.jsonl`;
+      const rolloutB = `${archivedDir}/rollout-b.jsonl`;
+
+      fsMock.access.mockResolvedValue(undefined);
+      fsMock.readFile.mockResolvedValue(
+        `${JSON.stringify({ id: 'sess-a', thread_name: 'My Thread' })}\nnot-json-line\n`
+      );
+
+      fsMock.readdir.mockImplementation(async (dir: string) => {
+        const normalized = normalizePath(dir);
+        if (normalized === sessionsDir) return [makeDirent('2026', true)];
+        if (normalized === `${sessionsDir}/2026`) return [makeDirent('04', true)];
+        if (normalized === `${sessionsDir}/2026/04`) return [makeDirent('17', true)];
+        if (normalized === dayDir) return [makeDirent('rollout-a.jsonl', false), makeDirent('ignore.txt', false)];
+        if (normalized === archivedDir) return [makeDirent('rollout-b.jsonl', false)];
+        return [];
+      });
+
+      fsMock.open.mockImplementation(async (filePath: string) => {
+        const normalized = normalizePath(filePath);
+        if (normalized === rolloutA) {
+          return makeFileHandle(
+            `${JSON.stringify({
+              type: 'session_meta',
+              payload: { id: 'sess-a', cwd: '/work/project-a', originator: 'cli' },
+            })}\n`,
+            9001
+          );
+        }
+        return makeFileHandle(
+          `${JSON.stringify({
+            type: 'session_meta',
+            payload: { id: 'sess-b', cwd: '/work/project-b', originator: 'desktop' },
+          })}\n`,
+          9002
+        );
+      });
+
+      const sessions = await scanner.scanCodex();
+
+      expect(sessions).toHaveLength(2);
+      const byId = new Map(sessions.map((item) => [item.sessionId, item]));
+      expect(byId.get('sess-a')?.name).toBe('My Thread');
+      expect(byId.get('sess-a')?.originator).toBe('cli');
+      expect(byId.get('sess-b')?.name).toBe('Codex - project-b');
+      expect(byId.get('sess-b')?.originator).toBe('desktop');
+    });
+
+    it('should skip malformed rollout metadata files', async () => {
+      const codexRoot = '/home/testuser/.codex';
+      const sessionsDir = `${codexRoot}/sessions`;
+      const dayDir = `${sessionsDir}/2026/04/17`;
+      const rolloutA = `${dayDir}/rollout-a.jsonl`;
+
+      fsMock.access.mockResolvedValue(undefined);
+      fsMock.readFile.mockRejectedValue(new Error('missing index'));
+
+      fsMock.readdir.mockImplementation(async (dir: string) => {
+        const normalized = normalizePath(dir);
+        if (normalized === sessionsDir) return [makeDirent('2026', true)];
+        if (normalized === `${sessionsDir}/2026`) return [makeDirent('04', true)];
+        if (normalized === `${sessionsDir}/2026/04`) return [makeDirent('17', true)];
+        if (normalized === dayDir) return [makeDirent('rollout-a.jsonl', false)];
+        if (normalized === `${codexRoot}/archived_sessions`) throw new Error('ENOENT');
+        return [];
+      });
+
+      fsMock.open.mockResolvedValue(makeFileHandle('not-json\n', 9100));
+
+      const sessions = await scanner.scanCodex();
+
+      expect(sessions).toEqual([]);
+      expect(normalizePath(fsMock.open.mock.calls[0][0])).toBe(rolloutA);
+      expect(fsMock.open.mock.calls[0][1]).toBe('r');
     });
   });
 });
