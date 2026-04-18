@@ -5,14 +5,68 @@
  */
 
 import { ipcBridge } from '@/common';
-import type {
-  ProjectExecutorCandidate,
-  ProjectExecutorState,
-  ProjectExecutorSwitchRecord,
-  QueueProjectExecutorSwitchResult,
-} from '@/common/projectAgentHandoff';
 import { useCallback, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
+
+type ProjectExecutorState = {
+  conversationId: string;
+  currentExecutorId: string;
+  pendingExecutorId?: string;
+  status: string;
+  updatedAt: number;
+};
+
+type ProjectExecutorCandidate = {
+  id: string;
+  label: string;
+  agentType: string;
+  source: string;
+  available: boolean;
+};
+
+type ProjectExecutorSwitchRecord = {
+  conversationId: string;
+  fromExecutorId: string;
+  toExecutorId: string;
+  reason: string;
+  queuedAt: number;
+  switchedAt?: number;
+  status: string;
+};
+
+type QueueProjectExecutorSwitchResult = {
+  applied: boolean;
+  state: ProjectExecutorState;
+  record?: ProjectExecutorSwitchRecord;
+};
+
+type BridgeResponse<T> = {
+  success: boolean;
+  msg?: string;
+  data?: T;
+};
+
+type ProjectExecutorChangedEvent = {
+  conversationId: string;
+};
+
+type InvokeProvider<TParams, TResult> = {
+  invoke: (params: TParams) => Promise<BridgeResponse<TResult>>;
+};
+
+type ProjectExecutorConversationBridge = {
+  getProjectExecutorState?: InvokeProvider<{ conversation_id: string }, ProjectExecutorState>;
+  getProjectExecutorCandidates?: InvokeProvider<{ conversation_id: string }, ProjectExecutorCandidate[]>;
+  getProjectExecutorHistory?: InvokeProvider<{ conversation_id: string }, ProjectExecutorSwitchRecord[]>;
+  queueProjectExecutorSwitch?: InvokeProvider<
+    { conversation_id: string; targetExecutorId: string },
+    QueueProjectExecutorSwitchResult
+  >;
+  cancelPendingProjectExecutorSwitch?: InvokeProvider<{ conversation_id: string }, ProjectExecutorState>;
+  projectExecutorChanged?: {
+    on: (listener: (event: ProjectExecutorChangedEvent) => void) => () => void;
+  };
+};
 
 type UseProjectAgentHandoffResult = {
   state?: ProjectExecutorState;
@@ -26,8 +80,13 @@ type UseProjectAgentHandoffResult = {
   refresh: () => Promise<void>;
 };
 
+const conversationBridge = ipcBridge.conversation as unknown as ProjectExecutorConversationBridge;
+
 const loadExecutorState = async (conversationId: string): Promise<ProjectExecutorState | undefined> => {
-  const result = await ipcBridge.conversation.getProjectExecutorState.invoke({ conversation_id: conversationId });
+  if (!conversationBridge.getProjectExecutorState) {
+    return undefined;
+  }
+  const result = await conversationBridge.getProjectExecutorState.invoke({ conversation_id: conversationId });
   if (!result.success) {
     console.warn('[useProjectAgentHandoff] Failed to load executor state:', result.msg);
     return undefined;
@@ -36,7 +95,10 @@ const loadExecutorState = async (conversationId: string): Promise<ProjectExecuto
 };
 
 const loadExecutorCandidates = async (conversationId: string): Promise<ProjectExecutorCandidate[]> => {
-  const result = await ipcBridge.conversation.getProjectExecutorCandidates.invoke({ conversation_id: conversationId });
+  if (!conversationBridge.getProjectExecutorCandidates) {
+    return [];
+  }
+  const result = await conversationBridge.getProjectExecutorCandidates.invoke({ conversation_id: conversationId });
   if (!result.success || !result.data) {
     console.warn('[useProjectAgentHandoff] Failed to load executor candidates:', result.msg);
     return [];
@@ -45,7 +107,10 @@ const loadExecutorCandidates = async (conversationId: string): Promise<ProjectEx
 };
 
 const loadExecutorHistory = async (conversationId: string): Promise<ProjectExecutorSwitchRecord[]> => {
-  const result = await ipcBridge.conversation.getProjectExecutorHistory.invoke({ conversation_id: conversationId });
+  if (!conversationBridge.getProjectExecutorHistory) {
+    return [];
+  }
+  const result = await conversationBridge.getProjectExecutorHistory.invoke({ conversation_id: conversationId });
   if (!result.success || !result.data) {
     console.warn('[useProjectAgentHandoff] Failed to load executor history:', result.msg);
     return [];
@@ -89,11 +154,11 @@ export const useProjectAgentHandoff = (conversationId?: string): UseProjectAgent
   );
 
   useEffect(() => {
-    if (!conversationId) {
+    if (!conversationId || !conversationBridge.projectExecutorChanged) {
       return;
     }
 
-    return ipcBridge.conversation.projectExecutorChanged.on((event) => {
+    return conversationBridge.projectExecutorChanged.on((event: ProjectExecutorChangedEvent) => {
       if (event.conversationId !== conversationId) {
         return;
       }
@@ -124,7 +189,10 @@ export const useProjectAgentHandoff = (conversationId?: string): UseProjectAgent
       if (!conversationId) {
         throw new Error('Conversation is required');
       }
-      const result = await ipcBridge.conversation.queueProjectExecutorSwitch.invoke({
+      if (!conversationBridge.queueProjectExecutorSwitch) {
+        throw new Error('Project executor switch is not supported');
+      }
+      const result = await conversationBridge.queueProjectExecutorSwitch.invoke({
         conversation_id: conversationId,
         targetExecutorId,
       });
@@ -141,7 +209,10 @@ export const useProjectAgentHandoff = (conversationId?: string): UseProjectAgent
     if (!conversationId) {
       throw new Error('Conversation is required');
     }
-    const result = await ipcBridge.conversation.cancelPendingProjectExecutorSwitch.invoke({
+    if (!conversationBridge.cancelPendingProjectExecutorSwitch) {
+      throw new Error('Project executor switch is not supported');
+    }
+    const result = await conversationBridge.cancelPendingProjectExecutorSwitch.invoke({
       conversation_id: conversationId,
     });
     if (!result.success || !result.data) {
