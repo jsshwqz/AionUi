@@ -1,18 +1,20 @@
-name: 自动同步上游发布包
+name: 同步上游代码分支
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天凌晨自动检查
-  workflow_dispatch:  # 允许手动触发
-
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 jobs:
-  sync-releases:
+  sync-branch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: 同步上游发布
-        uses: aminya/sync-releases@v1
+      - uses: actions/checkout@v4
         with:
-          source: "iOfficeAI/AionUi"  # 替换成原仓库的地址，比如"octocat/hello-world"
-          branch: master
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: 同步上游代码
+        run: |
+          git remote add upstream https://github.com/IOfficial/AionUI.git
+          git fetch upstream master
+          git checkout main
+          git merge upstream/master --allow-unrelated-histories
+          git push origin main
+
