@@ -12,7 +12,7 @@ jobs:
           fetch-depth: 0
       - name: 同步上游代码
         run: |
-          git remote add upstream https://github.com/IOfficial/AionUI.git
+          git remote add upstream https://github.com/iofficeai/aionui.git
           git fetch upstream master
           git checkout main
           git merge upstream/master --allow-unrelated-histories
