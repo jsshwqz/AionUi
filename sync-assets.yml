@@ -1,0 +1,48 @@
+name: Sync Upstream Assets
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # 每 6 小时自动检查一次
+  workflow_dispatch:      # 支持手动点击按钮立即同步
+
+jobs:
+  sync-releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 必填：赋予写入权限才能上传包
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync and Upload Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM: "iOfficeAI/AionUi" # 【！！！只需修改这里，例如：google/gson】
+        run: |
+          # 1. 获取原仓库最新的 Tag 名字
+          latest_tag=$(gh api repos/$UPSTREAM/releases/latest --jq .tag_name)
+          echo "发现原仓库最新版本: $latest_tag"
+
+          # 2. 检查自己的仓库是否已经存在这个 Tag 的 Release
+          if gh release view "$latest_tag" > /dev/null 2>&1; then
+            echo "版本 $latest_tag 已存在，跳过同步。"
+            exit 0
+          fi
+
+          # 3. 下载原仓库最新 Release 的所有附件到本地 temp_assets 文件夹
+          echo "正在下载原仓库附件..."
+          mkdir temp_assets
+          gh release download "$latest_tag" -R "$UPSTREAM" -D ./temp_assets
+
+          # 4. 获取原仓库的 Release 标题和说明
+          release_name=$(gh api repos/$UPSTREAM/releases/latest --jq .name)
+          release_body=$(gh api repos/$UPSTREAM/releases/latest --jq .body)
+
+          # 5. 在你的仓库创建 Release 并上传附件
+          # 自动在说明顶部加上同步标记
+          echo "正在上传并创建 Release..."
+          gh release create "$latest_tag" \
+            ./temp_assets/* \
+            --title "$release_name" \
+            --notes "Synced from $UPSTREAM. 原发布说明：\n\n$release_body"
